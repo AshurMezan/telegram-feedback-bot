@@ -4,11 +4,35 @@ const { Bot } = require('grammy');
 const bot = new Bot(process.env.BOT_API_KEY);
 const CHAT_ID = process.env.CHAT_ID;
 
+bot.api.setMyCommands([
+    {
+        command: 'start',
+        description: 'Начать работу с ботом',
+    },
+    {
+        command: 'about',
+        description: 'О боте',
+    },
+
+]);
+
 bot.command('start', async (ctx) => {
     await ctx.reply('Добро пожаловать. Вы активировали бота.');
 });
 
+bot.command('about', async (ctx) => {
+    await ctx.reply('Это бот обратной связи для пользователей. Он позволяет отправлять сообщения в чат администратора. Бот обрабаотывает текстовые сообщения, фото и PDF файлы.');
+});
+
+// ✅ Обновленная логика для команды /help
 bot.command('help', async (ctx) => {
+    // Проверяем, что ID текущего чата совпадает с ID чата администратора
+    if (String(ctx.chat.id) !== CHAT_ID) {
+        // Если это не чат администратора, ничего не делаем или отправляем другое сообщение
+        await ctx.reply('Я работаю только в определенном чате. Обратитесь к администратору, чтобы получить помощь.');
+        return;
+    }
+
     const helpMessage = `Команды бота:
 /block {user_id} - Блокировка пользователя по его телеграм ID.
 /unblock {user_id} - Разблокировка пользователя по его телеграм ID.
