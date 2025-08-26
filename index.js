@@ -1,5 +1,5 @@
 require('dotenv').config(); // импортируем переменные окружения
-const { Bot } = require('grammy'); // импртируем бота
+const { Bot } = require('grammy'); // импортируем бота
 const menu = require('./menu.js'); // Импортируем кнопку "Меню"
 const { 
     startHandler, 
@@ -7,71 +7,64 @@ const {
     helpHandler, 
     getIdChatHandler 
 } = require('./commands.js'); // Импортируем обработчики команд
+
 const bot = new Bot(process.env.BOT_API_KEY);
 const CHAT_ID = process.env.CHAT_ID;
 
-{  // Блок с командами для меню
-    async function setupMenu() {
-        await bot.api.setMyCommands(menu);
-    }
-
-    setupMenu() ;
+// Блок с командами для меню
+async function setupMenu() {
+    await bot.api.setMyCommands(menu);
 }
+setupMenu();
 
-{ // Блок с командами
-    bot.command('start', startHandler);
-    bot.command('about', aboutHandler);
-    bot.command('help', helpHandler);
-    bot.command('get_id_chat', getIdChatHandler);
-}
+// Блок с командами
+bot.command('start', startHandler);
+bot.command('about', aboutHandler);
+bot.command('help', helpHandler);
+bot.command('get_id_chat', getIdChatHandler);
 
-// Новая логика для обработки сообщений
-bot.on('message', async (ctx) => {
-    // Если сообщение является командой, игнорируем
-    if (ctx.message.text && ctx.message.text.startsWith('/')) {
+// Главный обработчик для всех текстовых сообщений
+bot.on('message:text', async (ctx) => {
+    // Игнорируем команды, которые начинаются с '/'
+    if (ctx.message.text.startsWith('/')) {
         return;
     }
+    
+    // Проверяем, если сообщение пришло из личного чата
+    if (ctx.chat.type === 'private') {
+        const from = ctx.from;
+        const userId = from.id;
+        const userName = from.username ? `(@${from.username})` : '';
+        const userFullName = from.first_name + (from.last_name ? ` ${from.last_name}` : '');
+        
+        // Создаём заголовок с информацией о пользователе и специальным тегом
+        const header = `Сообщение от ${userFullName} ${userName} - ${userId}:\n#user${userId}`;
+        const fullMessage = `${header}\n\n${ctx.message.text}`;
+        
+        await bot.api.sendMessage(Number(CHAT_ID), fullMessage);
 
-    // Проверяем, какой тип контента в сообщении
-    const isText = ctx.message.text;
-    const isPhoto = ctx.message.photo;
-    const isPdf = ctx.message.document && ctx.message.document.mime_type === 'application/pdf';
+    } else if (String(ctx.chat.id) === CHAT_ID) { // Иначе, если сообщение пришло из админского чата
+        // Проверяем, является ли это ответом на другое сообщение
+        if (ctx.message.reply_to_message) {
+            const repliedMessage = ctx.message.reply_to_message;
+            
+            // Получаем текст сообщения, на которое ответили
+            const repliedText = repliedMessage.text;
 
-    if (isText || isPhoto || isPdf) {
-        // Если тип данных разрешён, обрабатываем сообщение
-        if (CHAT_ID) {
-            const from = ctx.from;
-            const userId = from.id;
-            const userName = from.username ? `(@${from.username})` : '';
-            const userFullName = from.first_name + (from.last_name ? ` ${from.last_name}` : '');
+            // Используем регулярное выражение для поиска ID пользователя в тексте
+            const match = repliedText.match(/#user(\d+)/);
             
-            const header = `Сообщение от ${userFullName} ${userName} - ${userId}:`;
-            
-            // Определяем, что переслать
-            if (isText) {
-                const fullMessage = `${header}\n\n${ctx.message.text}`;
-                await bot.api.sendMessage(Number(CHAT_ID), fullMessage);
-            } else if (isPhoto) {
-                // Пересылаем фото и подписываем его
-                await bot.api.sendPhoto(
-                    Number(CHAT_ID),
-                    ctx.message.photo[ctx.message.photo.length - 1].file_id,
-                    { caption: header }
-                );
-            } else if (isPdf) {
-                // Пересылаем документ и подписываем его
-                await bot.api.sendDocument(
-                    Number(CHAT_ID),
-                    ctx.message.document.file_id,
-                    { caption: header }
-                );
+            if (match && match[1]) {
+                const privateChatId = match[1];
+                
+                // Отправляем ответ пользователю
+                await bot.api.sendMessage(privateChatId, ctx.message.text);
+                await ctx.reply('Отправляю обратно.');
+            } else {
+                await ctx.reply('Не могу найти пользователя, которому нужно ответить. Возможно, вы отвечаете на сообщение, которое было отправлено до обновления кода.');
             }
         }
-    } else {
-        // Если тип данных не разрешён, отвечаем пользователю
-        await ctx.reply('С таким типом данных не работаю.');
     }
 });
-
 
 bot.start();
