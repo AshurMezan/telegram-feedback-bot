@@ -16,13 +16,9 @@ const helpHandler = async (ctx) => {
     }
 
     const helpMessage = `Команды бота:
-/block {user_id} - Блокировка пользователя по его телеграм ID.
-/unblock {user_id} - Разблокировка пользователя по его телеграм ID.
-/block_list {page_number} - Увидеть список заблокированных пользователей на странице N. По умолчанию N=1
-/user_list {page_number} - Увидеть список всех пользователей на странице N. По умолчанию N=1.
-/get_id_chat - Узнать ID чата.
-/get_messages_list - Посмотреть список сообщений для пользователей.
-/change_message {msg_key} {msg_text} - Изменить текст сообщения для пользователя. msgkey - ключ сообщения, msgtext - новый текст сообщения.`;
+/block {user_id} - Блокировка пользователя по его телеграм ID. Пример: /block 950580180
+/unblock {user_id} - Разблокировка пользователя по его телеграм ID. Пример: /unblock 950580180
+/get_id_chat - Узнать ID чата.`;
 
     await ctx.reply(helpMessage);
 };
