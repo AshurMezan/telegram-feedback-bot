@@ -1,13 +1,15 @@
 require('dotenv').config(); // импортируем переменные окружения
 const { Bot } = require('grammy'); // импортируем бота
 const menu = require('./menu.js'); // Импортируем кнопку "Меню"
-const db = require('./db.js'); // Импортировали базу данных
 const { 
     startHandler, 
     aboutHandler, 
     helpHandler, 
-    getIdChatHandler 
-} = require('./commands.js'); // Импортируем обработчики команд
+    getIdChatHandler,
+    blockHandler,
+    unblockHandler,
+    isUserBlocked,
+} = require('./commands.js'); // Импортируем обработчики команд и хелперы
 
 const bot = new Bot(process.env.BOT_API_KEY);
 const CHAT_ID = process.env.CHAT_ID;
@@ -18,80 +20,15 @@ async function setupMenu() {
 }
 setupMenu();
 
-// Хелпер: проверка, заблокирован ли пользователь
-async function isUserBlocked(userId) {
-	const row = await new Promise((resolve, reject) => {
-		db.get('SELECT user_id FROM users WHERE user_id = ?', [userId], (err, result) => {
-			if (err) return reject(err);
-			resolve(result);
-		});
-	}).catch(() => null);
-	return Boolean(row);
-}
+// Команды админ-чата
+bot.command('block', blockHandler);
+bot.command('unblock', unblockHandler);
+bot.command('help', helpHandler);
+bot.command('get_id_chat', getIdChatHandler);
+// Команды для клиента
+bot.command('start', startHandler);
+bot.command('about', aboutHandler);
 
-// Команда: /block <user_id> — доступна только в админском чате
-bot.command('block', async (ctx) => {
-	if (String(ctx.chat.id) !== CHAT_ID) {
-		return;
-	}
-
-	const text = ctx.message.text || '';
-	const parts = text.trim().split(/\s+/);
-	const arg = parts[1];
-	const userIdToBlock = arg && /^\d+$/.test(arg) ? Number(arg) : null;
-
-	if (!userIdToBlock) {
-		await ctx.reply('Использование: /block <user_id>');
-		return;
-	}
-
-	try {
-		await new Promise((resolve, reject) => {
-			db.run('INSERT OR IGNORE INTO users (user_id) VALUES (?)', [userIdToBlock], (err) => {
-				if (err) return reject(err);
-				resolve();
-			});
-		});
-		await ctx.reply(`Пользователь ${userIdToBlock} заблокирован. Сообщения больше не пересылаются.`);
-	} catch (err) {
-		await ctx.reply('Ошибка базы данных при блокировке.');
-	}
-})
-
-// Команда: /unblock <user_id> — удаляет пользователя из списка блокировки (только админ-чат)
-bot.command('unblock', async (ctx) => {
-	if (String(ctx.chat.id) !== CHAT_ID) {
-		return;
-	}
-
-	const text = ctx.message.text || '';
-	const parts = text.trim().split(/\s+/);
-	const arg = parts[1];
-	const userIdToUnblock = arg && /^\d+$/.test(arg) ? Number(arg) : null;
-
-	if (!userIdToUnblock) {
-		await ctx.reply('Использование: /unblock <user_id>');
-		return;
-	}
-
-	try {
-		await new Promise((resolve, reject) => {
-			// Используем function, чтобы получить this.changes
-			db.run('DELETE FROM users WHERE user_id = ?', [userIdToUnblock], function (err) {
-				if (err) return reject(err);
-				resolve(this.changes);
-			});
-		}).then(async (changes) => {
-			if (changes > 0) {
-				await ctx.reply(`Пользователь ${userIdToUnblock} разблокирован.`);
-			} else {
-				await ctx.reply('Пользователь не найден в списке блокировки.');
-			}
-		});
-	} catch (err) {
-		await ctx.reply('Ошибка базы данных при разблокировке.');
-	}
-})
 // Обработчик для всех текстовых сообщений
 bot.on('message:text', async (ctx) => {
     // Игнорируем команды, которые начинаются с '/'
@@ -138,5 +75,92 @@ bot.on('message:text', async (ctx) => {
     }
 });
 
+// Обработчик для фотографий
+bot.on('message:photo', async (ctx) => {
+    // Проверяем, если сообщение пришло из личного чата
+    if (ctx.chat.type === 'private') {
+        const from = ctx.from;
+        const userId = from.id;
+         // Пропускаем, если пользователь заблокирован
+         if (await isUserBlocked(userId)) return;
+        const userName = from.username ? `(@${from.username})` : '';
+        const userFullName = from.first_name + (from.last_name ? ` ${from.last_name}` : '');
+
+        const header = `Сообщение от ${userFullName} ${userName} - ${userId}:\n#user${userId}`;
+        const originalCaption = ctx.message.caption ? `\n\n${ctx.message.caption}` : '';
+        const fullCaption = `${header}${originalCaption}`;
+
+        const photoSizes = ctx.message.photo || [];
+        const largestPhoto = photoSizes[photoSizes.length - 1];
+        if (!largestPhoto) return;
+
+        await bot.api.sendPhoto(Number(CHAT_ID), largestPhoto.file_id, { caption: fullCaption });
+
+    } else if (String(ctx.chat.id) === CHAT_ID) {
+        if (ctx.message.reply_to_message) {
+            const repliedMessage = ctx.message.reply_to_message;
+            const repliedText = repliedMessage.text || repliedMessage.caption || '';
+            const match = repliedText.match(/#user(\d+)/);
+
+            if (match && match[1]) {
+                const privateChatId = match[1];
+                await bot.api.sendMessage(privateChatId, ctx.message.text || '');
+                await ctx.reply('Отправляю обратно.');
+            } else {
+                await ctx.reply('Не могу найти пользователя, которому нужно ответить. Возможно, вы отвечаете на сообщение, которое было отправлено до обновления кода.');
+            }
+        }
+    }
+});
+
+// Обработчик для документов (только PDF)
+bot.on('message:document', async (ctx) => {
+    const document = ctx.message.document;
+    if (!document) return;
+    const isPdf = document.mime_type === 'application/pdf' || (document.file_name && document.file_name.toLowerCase().endsWith('.pdf'));
+    if (!isPdf) return; // Игнорируем не-PDF документы
+
+    if (ctx.chat.type === 'private') {
+        const from = ctx.from;
+        const userId = from.id;
+         // Пропускаем, если пользователь заблокирован
+         if (await isUserBlocked(userId)) return;
+        const userName = from.username ? `(@${from.username})` : '';
+        const userFullName = from.first_name + (from.last_name ? ` ${from.last_name}` : '');
+
+        const header = `Сообщение от ${userFullName} ${userName} - ${userId}:\n#user${userId}`;
+        const originalCaption = ctx.message.caption ? `\n\n${ctx.message.caption}` : '';
+        const fullCaption = `${header}${originalCaption}`;
+
+        await bot.api.sendDocument(Number(CHAT_ID), document.file_id, { caption: fullCaption });
+
+    } else if (String(ctx.chat.id) === CHAT_ID) {
+        if (ctx.message.reply_to_message) {
+            const repliedMessage = ctx.message.reply_to_message;
+            const repliedText = repliedMessage.text || repliedMessage.caption || '';
+            const match = repliedText.match(/#user(\d+)/);
+
+            if (match && match[1]) {
+                const privateChatId = match[1];
+                await bot.api.sendMessage(privateChatId, ctx.message.text || '');
+                await ctx.reply('Отправляю обратно.');
+            } else {
+                await ctx.reply('Не могу найти пользователя, которому нужно ответить. Возможно, вы отвечаете на сообщение, которое было отправлено до обновления кода.');
+            }
+        }
+    }
+});
+
+// Обработчик для остальных сообщений
+bot.on('message', async (ctx) => {
+    if (ctx.chat.type === 'private') {
+        const from = ctx.from;
+        const userId = from.id;
+         // Пропускаем, если пользователь заблокирован
+         if (await isUserBlocked(userId)) return;
+        await ctx.reply('Я работаю только с текстом, фотографиями и PDF-документами.');
+    }
+    
+});
 
 bot.start();
