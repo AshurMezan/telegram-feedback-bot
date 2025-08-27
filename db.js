@@ -1,5 +1,5 @@
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
+const sqlite3 = require('sqlite3').verbose(); // Импортируем модуль sqlite3, который позволяет взаимодействовать с базами данных SQLite. А .verbose() делает вывод ошибок более подробным -- полезно для отладки.
+const path = require('path'); // Импортируем встроенный в Node.js модуль path. Он нужен для работы с путями к файлам и папкам в независимости от ОС.
 
 // Путь к файлу базы данных. __dirname — это текущая папка
 const dbPath = path.resolve(__dirname, 'blacklist.sqlite');
