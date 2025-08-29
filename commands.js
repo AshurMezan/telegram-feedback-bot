@@ -168,12 +168,13 @@ const helpHandler = async (ctx) => {
     }
 
     const helpMessage = `Команды бота:
-/block {user_id} - Блокировка пользователя по его телеграм ID. Пример: /block 950580180
-/unblock {user_id} - Разблокировка пользователя по его телеграм ID. Пример: /unblock 950580180
-/get_id_chat - Узнать ID чата.
-/give_me_all_users - Сколько человек запустили бота.
-/list_users - Список всех user_id (пакетами).
-/recent_users [N] - Последние N пользователей (по умолчанию 10, максимум 200).`;
+/block {user_id} — Блокировка пользователя по его телеграм ID. Пример: /block 950580180
+/unblock {user_id} — Разблокировка пользователя по его телеграм ID. Пример: /unblock 950580180
+/get_id_chat — Узнать ID чата.
+/help — Узнать какие команды есть.
+/give_me_all_users — Сколько человек запустили бота.
+/list_users — Список всех user_id (пакетами).
+/recent_users [N] — Последние N пользователей (по умолчанию 10, максимум 200).`;
 
     try {
         await ctx.reply(helpMessage);
