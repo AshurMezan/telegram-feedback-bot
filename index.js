@@ -1,4 +1,5 @@
 require('dotenv').config(); // импортируем переменные окружения
+const logger = require('./logger');
 const { Bot } = require('grammy'); // импортируем бота
 const menu = require('./menu.js'); // Импортируем кнопку "Меню"
 const { 
@@ -43,11 +44,26 @@ bot.on('message', (ctx) => otherMessageHandler(ctx, bot));
 // Запускаем бот
 async function runBot() {
     try {
+        // Глобальный обработчик ошибок бота
+        bot.catch((err) => {
+            const ctx = err.ctx;
+            logger.error({ update: ctx?.update, err }, 'Ошибка бота перехвачена');
+        });
+
         bot.start();
-        console.log('Бот запущен.');
+        logger.info('Бот запущен.');
     } catch (error) {
-        console.error('Ошибка. Бот не запустился:', error)
+        logger.fatal({ error }, 'Критическая ошибка. Бот не запустился');
     };
 }
 
 runBot()
+
+// Обработчики на уровне процесса
+process.on('unhandledRejection', (reason) => {
+    logger.error({ reason }, 'Необработанное отклонение промиса');
+});
+process.on('uncaughtException', (error) => {
+    logger.fatal({ error }, 'Необработанное исключение');
+    process.exit(1);
+});

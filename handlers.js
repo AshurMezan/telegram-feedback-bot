@@ -1,4 +1,5 @@
 const { isUserBlocked } = require('./commands.js');
+const logger = require('./logger');
 
 // Обработчик для текстовых сообщений
 const textMessageHandler = async (ctx, CHAT_ID, bot) => {
@@ -20,7 +21,12 @@ const textMessageHandler = async (ctx, CHAT_ID, bot) => {
         const header = `Сообщение от ${userFullName} ${userName} - ${userId}:\n#user${userId}`;
         const fullMessage = `${header}\n\n${ctx.message.text}`;
         
-        await bot.api.sendMessage(Number(CHAT_ID), fullMessage);
+        try {
+            await bot.api.sendMessage(Number(CHAT_ID), fullMessage);
+            logger.debug({ userId, chatType: ctx.chat.type }, 'Текстовое сообщение переслано в админ-чат');
+        } catch (err) {
+            logger.error({ err }, 'Не удалось переслать текстовое сообщение');
+        }
 
     } else if (String(ctx.chat.id) === CHAT_ID) { // Иначе, если сообщение пришло из админского чата
         // Проверяем, является ли это ответом на другое сообщение
@@ -37,10 +43,16 @@ const textMessageHandler = async (ctx, CHAT_ID, bot) => {
                 const privateChatId = match[1];
                 
                 // Отправляем ответ пользователю
-                await bot.api.sendMessage(privateChatId, ctx.message.text);
-                await ctx.reply('Отправляю обратно.');
+                try {
+                    await bot.api.sendMessage(privateChatId, ctx.message.text);
+                    await ctx.reply('Отправляю обратно.');
+                    logger.debug({ privateChatId }, 'Ответ отправлен пользователю из админ-чата');
+                } catch (err) {
+                    logger.error({ err }, 'Не удалось отправить ответ из админ-чата');
+                }
             } else {
                 await ctx.reply('Не могу найти пользователя, которому нужно ответить. Возможно, вы отвечаете на сообщение, которое было отправлено до обновления кода.');
+                logger.warn({ repliedText }, 'Не удалось определить пользователя для ответа (текст)');
             }
         }
     }
@@ -65,7 +77,12 @@ const photoMessageHandler = async (ctx, CHAT_ID, bot) => {
         const largestPhoto = photoSizes[photoSizes.length - 1];
         if (!largestPhoto) return;
 
-        await bot.api.sendPhoto(Number(CHAT_ID), largestPhoto.file_id, { caption: fullCaption });
+        try {
+            await bot.api.sendPhoto(Number(CHAT_ID), largestPhoto.file_id, { caption: fullCaption });
+            logger.debug({ userId, chatType: ctx.chat.type }, 'Фото переслано в админ-чат');
+        } catch (err) {
+            logger.error({ err }, 'Не удалось переслать фото');
+        }
 
     } else if (String(ctx.chat.id) === CHAT_ID) {
         if (ctx.message.reply_to_message) {
@@ -75,10 +92,16 @@ const photoMessageHandler = async (ctx, CHAT_ID, bot) => {
 
             if (match && match[1]) {
                 const privateChatId = match[1];
-                await bot.api.sendMessage(privateChatId, ctx.message.text || '');
-                await ctx.reply('Отправляю обратно.');
+                try {
+                    await bot.api.sendMessage(privateChatId, ctx.message.text || '');
+                    await ctx.reply('Отправляю обратно.');
+                    logger.debug({ privateChatId }, 'Ответ на фото отправлен пользователю');
+                } catch (err) {
+                    logger.error({ err }, 'Не удалось отправить ответ на фото');
+                }
             } else {
                 await ctx.reply('Не могу найти пользователя, которому нужно ответить. Возможно, вы отвечаете на сообщение, которое было отправлено до обновления кода.');
+                logger.warn({ repliedText }, 'Не удалось определить пользователя для ответа (фото)');
             }
         }
     }
@@ -103,7 +126,12 @@ const documentMessageHandler = async (ctx, CHAT_ID, bot) => {
         const originalCaption = ctx.message.caption ? `\n\n${ctx.message.caption}` : '';
         const fullCaption = `${header}${originalCaption}`;
 
-        await bot.api.sendDocument(Number(CHAT_ID), document.file_id, { caption: fullCaption });
+        try {
+            await bot.api.sendDocument(Number(CHAT_ID), document.file_id, { caption: fullCaption });
+            logger.debug({ userId, chatType: ctx.chat.type }, 'Документ переслан в админ-чат');
+        } catch (err) {
+            logger.error({ err }, 'Не удалось переслать документ');
+        }
 
     } else if (String(ctx.chat.id) === CHAT_ID) {
         if (ctx.message.reply_to_message) {
@@ -113,10 +141,16 @@ const documentMessageHandler = async (ctx, CHAT_ID, bot) => {
             
             if (match && match[1]) {
                 const privateChatId = match[1];
-                await bot.api.sendMessage(privateChatId, ctx.message.text || '');
-                await ctx.reply('Отправляю обратно.');
+                try {
+                    await bot.api.sendMessage(privateChatId, ctx.message.text || '');
+                    await ctx.reply('Отправляю обратно.');
+                    logger.debug({ privateChatId }, 'Ответ на документ отправлен пользователю');
+                } catch (err) {
+                    logger.error({ err }, 'Не удалось отправить ответ на документ');
+                }
             } else {
                 await ctx.reply('Не могу найти пользователя, которому нужно ответить. Возможно, вы отвечаете на сообщение, которое было отправлено до обновления кода.');
+                logger.warn({ repliedText }, 'Не удалось определить пользователя для ответа (документ)');
             }
         }
     }
@@ -129,7 +163,11 @@ const otherMessageHandler = async (ctx, bot) => {
         const userId = from.id;
         // Пропускаем, если пользователь заблокирован
         if (await isUserBlocked(userId)) return;
-        await ctx.reply('Я работаю только с текстом, фотографиями и PDF-документами.');
+        try {
+            await ctx.reply('Я работаю только с текстом, фотографиями и PDF-документами.');
+        } catch (err) {
+            logger.error({ err }, 'Не удалось отправить ответ по умолчанию');
+        }
     }
 };
 
