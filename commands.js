@@ -16,6 +16,19 @@ const isUserBlocked = async (userId) => {
 
 const startHandler = async (ctx) => {
     if(ctx.chat.type === 'private') { 
+        // сохраняем пользователя, который запустил бота
+        const userId = ctx.from.id;
+        try {
+            await new Promise((resolve, reject) => {
+                db.run('INSERT OR IGNORE INTO bot_users (user_id, created_at) VALUES (?, ?)', [userId, new Date().toISOString()], (err) => {
+                    if (err) return reject(err);
+                    resolve();
+                });
+            });
+        } catch (err) {
+            logger.error({ err }, 'Ошибка БД при сохранении пользователя /start');
+        }
+
         try {
             await ctx.reply('Добро пожаловать. Вы активировали бота.');
         } catch (err) {
@@ -26,6 +39,104 @@ const startHandler = async (ctx) => {
             await ctx.reply('Эта команда только для клиентов.');
         } catch (err) {
             logger.error({ err }, 'Не удалось отправить сообщение о доступности только для клиентов (/start)');
+        }
+    }
+};
+
+// Команда администратора: получить количество пользователей бота
+const giveMeAllUsersHandler = async (ctx) => {
+    if (String(ctx.chat.id) !== CHAT_ID) {
+        return;
+    }
+    try {
+        const count = await new Promise((resolve, reject) => {
+            db.get('SELECT COUNT(*) AS cnt FROM bot_users', [], (err, row) => {
+                if (err) return reject(err);
+                resolve(row?.cnt || 0);
+            });
+        });
+        await ctx.reply(`Количество пользователей, запустивших бота: ${count}`);
+    } catch (err) {
+        logger.error({ err }, 'Ошибка БД при подсчете пользователей');
+        try {
+            await ctx.reply('Не удалось получить количество пользователей.');
+        } catch (e) {
+            logger.error({ e }, 'Не удалось отправить сообщение о неудаче подсчета');
+        }
+    }
+};
+
+// Команда администратора: список всех user_id (пакетами)
+const listUsersHandler = async (ctx) => {
+    if (String(ctx.chat.id) !== CHAT_ID) {
+        return;
+    }
+    try {
+        const rows = await new Promise((resolve, reject) => {
+            db.all('SELECT user_id FROM bot_users ORDER BY user_id ASC', [], (err, rows) => {
+                if (err) return reject(err);
+                resolve(rows || []);
+            });
+        });
+        if (rows.length === 0) {
+            await ctx.reply('Пока нет пользователей.');
+            return;
+        }
+        const ids = rows.map(r => String(r.user_id));
+        const chunkSize = 50; // безопасный размер пакета
+        for (let i = 0; i < ids.length; i += chunkSize) {
+            const chunk = ids.slice(i, i + chunkSize).join(', ');
+            await ctx.reply(`user_id: ${chunk}`);
+        }
+    } catch (err) {
+        logger.error({ err }, 'Ошибка БД при получении списка пользователей');
+        try {
+            await ctx.reply('Не удалось получить список пользователей.');
+        } catch (e) {
+            logger.error({ e }, 'Не удалось отправить сообщение о неудаче списка');
+        }
+    }
+};
+
+// Команда администратора: последние N пользователей по дате
+const recentUsersHandler = async (ctx) => {
+    if (String(ctx.chat.id) !== CHAT_ID) {
+        return;
+    }
+    const text = ctx.message.text || '';
+    const parts = text.trim().split(/\s+/);
+    const N = Math.min(Math.max(parseInt(parts[1] || '10', 10) || 10, 1), 200); // 1..200
+    try {
+        const rows = await new Promise((resolve, reject) => {
+            db.all('SELECT user_id, created_at FROM bot_users ORDER BY datetime(created_at) DESC LIMIT ?', [N], (err, rows) => {
+                if (err) return reject(err);
+                resolve(rows || []);
+            });
+        });
+        if (rows.length === 0) {
+            await ctx.reply('Пока нет пользователей.');
+            return;
+        }
+        const formatTs = (iso) => {
+            const d = new Date(iso);
+            const dd = String(d.getDate()).padStart(2, '0');
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const yyyy = d.getFullYear();
+            const HH = String(d.getHours()).padStart(2, '0');
+            const MM = String(d.getMinutes()).padStart(2, '0');
+            return `${dd}.${mm}.${yyyy} ${HH}:${MM}`;
+        };
+        const lines = rows.map(r => `${r.user_id} — ${formatTs(r.created_at)}`);
+        const chunkSize = 30;
+        for (let i = 0; i < lines.length; i += chunkSize) {
+            await ctx.reply(lines.slice(i, i + chunkSize).join('\n'));
+        }
+    } catch (err) {
+        logger.error({ err }, 'Ошибка БД при получении последних пользователей');
+        try {
+            await ctx.reply('Не удалось получить последних пользователей.');
+        } catch (e) {
+            logger.error({ e }, 'Не удалось отправить сообщение о неудаче последних пользователей');
         }
     }
 };
@@ -59,7 +170,10 @@ const helpHandler = async (ctx) => {
     const helpMessage = `Команды бота:
 /block {user_id} - Блокировка пользователя по его телеграм ID. Пример: /block 950580180
 /unblock {user_id} - Разблокировка пользователя по его телеграм ID. Пример: /unblock 950580180
-/get_id_chat - Узнать ID чата.`;
+/get_id_chat - Узнать ID чата.
+/give_me_all_users - Сколько человек запустили бота.
+/list_users - Список всех user_id (пакетами).
+/recent_users [N] - Последние N пользователей (по умолчанию 10, максимум 200).`;
 
     try {
         await ctx.reply(helpMessage);
@@ -173,4 +287,7 @@ module.exports = {
     blockHandler,
     unblockHandler,
     isUserBlocked,
+    giveMeAllUsersHandler,
+    listUsersHandler,
+    recentUsersHandler,
 };

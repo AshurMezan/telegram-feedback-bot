@@ -24,6 +24,20 @@ const db = new sqlite3.Database(dbPath, (err) => {
                 logger.info('Таблица "users" готова.');
             }
         });
+
+        // Создаем таблицу для пользователей, запустивших бота
+        db.run(`
+            CREATE TABLE IF NOT EXISTS bot_users (
+                user_id INTEGER PRIMARY KEY UNIQUE,
+                created_at TEXT NOT NULL
+            )
+        `, (err) => {
+            if (err) {
+                logger.error({ err }, 'Ошибка при создании таблицы bot_users');
+            } else {
+                logger.info('Таблица "bot_users" готова.');
+            }
+        });
     }
 });
 

@@ -9,6 +9,9 @@ const {
     getIdChatHandler,
     blockHandler,
     unblockHandler,
+    giveMeAllUsersHandler,
+    listUsersHandler,
+    recentUsersHandler,
 } = require('./commands.js'); // Импортируем обработчики команд
 const {
     textMessageHandler,
@@ -31,6 +34,9 @@ bot.command('block', blockHandler);
 bot.command('unblock', unblockHandler);
 bot.command('help', helpHandler);
 bot.command('get_id_chat', getIdChatHandler);
+bot.command('give_me_all_users', giveMeAllUsersHandler);
+bot.command('list_users', listUsersHandler);
+bot.command('recent_users', recentUsersHandler);
 // Команды для клиента
 bot.command('start', startHandler);
 bot.command('about', aboutHandler);
