@@ -6,7 +6,7 @@ const logger = require('./logger');
 // Хелпер: проверка блокировки пользователя
 const isUserBlocked = async (userId) => {
 	const row = await new Promise((resolve, reject) => {
-		db.get('SELECT user_id FROM users WHERE user_id = ?', [userId], (err, result) => {
+		db.get('SELECT user_id FROM black_list WHERE user_id = ?', [userId], (err, result) => {
 			if (err) return reject(err);
 			resolve(result);
 		});
@@ -211,7 +211,7 @@ const blockHandler = async (ctx) => {
 
 	try {
 		await new Promise((resolve, reject) => {
-			db.run('INSERT OR IGNORE INTO users (user_id) VALUES (?)', [userIdToBlock], (err) => {
+			db.run('INSERT OR IGNORE INTO black_list (user_id) VALUES (?)', [userIdToBlock], (err) => {
 				if (err) return reject(err);
 				resolve();
 			});
@@ -250,7 +250,7 @@ const unblockHandler = async (ctx) => {
 
 	try {
 		await new Promise((resolve, reject) => {
-			db.run('DELETE FROM users WHERE user_id = ?', [userIdToUnblock], function (err) {
+			db.run('DELETE FROM black_list WHERE user_id = ?', [userIdToUnblock], function (err) {
 				if (err) return reject(err);
 				resolve(this.changes);
 			});

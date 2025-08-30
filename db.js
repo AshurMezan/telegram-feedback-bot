@@ -14,16 +14,17 @@ const db = new sqlite3.Database(dbPath, (err) => {
         
         // Создаем таблицу, если её ещё нет
         db.run(`
-            CREATE TABLE IF NOT EXISTS users (
+            CREATE TABLE IF NOT EXISTS black_list (
                 user_id INTEGER PRIMARY KEY UNIQUE
             )
         `, (err) => {
             if (err) {
-                logger.error({ err }, 'Ошибка при создании таблицы');
+                logger.error({ err }, 'Ошибка при создании таблицы black_list');
             } else {
-                logger.info('Таблица "users" готова.');
+                logger.info('Таблица "black_list" готова.');
             }
         });
+
 
         // Создаем таблицу для пользователей, запустивших бота
         db.run(`
