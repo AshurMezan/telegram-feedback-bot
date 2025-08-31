@@ -44,38 +44,58 @@ bot.command('start', startHandler);
 bot.command('about', aboutHandler);
 
 // Обработчик для рассылки
+
+
 bot.on("message").filter(async (ctx) => {
     // 1. Проверяем, что сообщение пришло из нужного чата
     if (String(ctx.chat.id) === String(CHAT_ID)) {
-        // 2. Получаем текст сообщения
+        // 2. Получаем текст из подписи к фото или из обычного сообщения
         const messageText = ctx.message.text || ctx.message.caption;
 
         // 3. Проверяем, существует ли текст и содержит ли он '/send_news'
         if (messageText && messageText.includes('/send_news')) {
-            // 4. Получаем текст сообщения для рассылки
-            const textToSend = ctx.message.text;
+            
+            // 4. Очищаем текст от команды для рассылки
+            const textToSend = messageText.replace('/send_news', '').trim();
+            
+            // Проверяем, есть ли у сообщения фотография
+            const photo = ctx.message.photo;
+
+            // Если есть фото, берем file_id самого большого из них
+            const fileId = photo ? photo[photo.length - 1].file_id : null;
+
+            // Нечего рассылать, если нет ни фото, ни текста
+            if (!fileId && !textToSend) {
+                await ctx.reply("Нечего рассылать. Добавьте текст после команды или прикрепите фото.");
+                return;
+            }
 
             // 5. Получаем список всех подписчиков из таблицы bot_users
             try {
                 const subscribers = await new Promise((resolve, reject) => {
                     db.all('SELECT user_id FROM bot_users', (err, rows) => {
-                        if (err) {
-                            reject(err);
-                        } else {
-                            // Возвращаем массив ID пользователей
-                            resolve(rows.map(row => row.user_id));
-                        }
+                        if (err) { reject(err); } 
+                        else { resolve(rows.map(row => row.user_id)); }
                     });
                 });
 
                 // 6. Запускаем рассылку
+                let sentCount = 0;
                 for (const userId of subscribers) {
                     try {
-                        await bot.api.sendMessage(userId, textToSend);
-                        // Делаем небольшую задержку, чтобы избежать лимитов Telegram
+                        
+                        // Если есть фото, отправляем фото с подписью
+                        if (fileId) {
+                            await bot.api.sendPhoto(userId, fileId, { caption: textToSend });
+                        } 
+                        // Иначе отправляем только текст
+                        else {
+                            await bot.api.sendMessage(userId, textToSend);
+                        }
+                        sentCount++;
+
                         await new Promise(resolve => setTimeout(resolve, 50));
                     } catch (err) {
-                        // Обработка ошибок, если пользователь заблокировал бота
                         if (err instanceof GrammyError || err instanceof HttpError) {
                             console.error(`Ошибка при отправке сообщения пользователю ${userId}:`, err.message);
                         }
@@ -83,16 +103,17 @@ bot.on("message").filter(async (ctx) => {
                 }
 
                 // 7. Отправляем подтверждение об окончании рассылки
-                await ctx.reply(`Рассылка успешно завершена. Сообщение отправлено ${subscribers.length} пользователям.`);
+                await ctx.reply(`Рассылка успешно завершена. Сообщение отправлено ${sentCount} из ${subscribers.length} пользователям.`);
 
             } catch (err) {
-                // Обработка ошибок при работе с базой данных
                 console.error("Ошибка при получении списка пользователей:", err);
                 await ctx.reply("Произошла ошибка при получении списка подписчиков.");
             }
         }
     }
 });
+
+
 
 // Обработчики сообщений
 bot.on('message:text', (ctx) => textMessageHandler(ctx, CHAT_ID, bot));
