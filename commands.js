@@ -1,7 +1,7 @@
 // Импортируем CHAT_ID, чтобы использовать его в обработчиках
 const CHAT_ID = process.env.CHAT_ID;
-const db = require('./db.js');
-const logger = require('./logger');
+const db = require('./db.js'); // Вот здесь мы подключили скрипт для работы с базой данных
+const logger = require('./logger'); // Вот это логи
 
 // Хелпер: проверка блокировки пользователя
 const isUserBlocked = async (userId) => {

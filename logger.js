@@ -56,5 +56,3 @@ if (transport) {
 }
 
 module.exports = logger;
-
-

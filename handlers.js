@@ -112,7 +112,10 @@ const documentMessageHandler = async (ctx, CHAT_ID, bot) => {
     const document = ctx.message.document;
     if (!document) return;
     const isPdf = document.mime_type === 'application/pdf' || (document.file_name && document.file_name.toLowerCase().endsWith('.pdf'));
-    if (!isPdf) return; // Игнорируем не-PDF документы
+    if (!isPdf) {
+        await ctx.reply('Отправлять можно только документы с расширением  PDF.');
+        return; // Игнорируем не-PDF документы
+    } 
 
     if (ctx.chat.type === 'private') {
         const from = ctx.from;
@@ -156,6 +159,76 @@ const documentMessageHandler = async (ctx, CHAT_ID, bot) => {
     }
 };
 
+// Рассылка
+const sendNewsHandler = async (ctx, db, bot, CHAT_ID, logger, GrammyError, HttpError) => {
+    // 1. Проверяем, что сообщение пришло из нужного чата
+    if (String(ctx.chat.id) !== String(CHAT_ID)) {
+        return;
+    }
+    
+    // 2. Получаем текст из подписи к фото или из обычного сообщения
+    const messageText = ctx.message.text || ctx.message.caption;
+
+    // 3. Проверяем, существует ли текст и содержит ли он '/send_news'
+    if (!messageText || !messageText.includes('/send_news')) {
+        return;
+    }
+    
+    // 4. Очищаем текст от команды для рассылки
+    const textToSend = messageText.replace('/send_news', '').trim();
+    
+    // Проверяем, есть ли у сообщения фотография
+    const photo = ctx.message.photo;
+
+    // Если есть фото, берем file_id самого большого из них
+    const fileId = photo ? photo[photo.length - 1].file_id : null;
+
+    // Нечего рассылать, если нет ни фото, ни текста
+    if (!fileId && !textToSend) {
+        await ctx.reply("Нечего рассылать. Добавьте текст после команды или прикрепите фото.");
+        return;
+    }
+
+    // 5. Получаем список всех подписчиков из таблицы bot_users
+    try {
+        const subscribers = await new Promise((resolve, reject) => {
+            db.all('SELECT user_id FROM bot_users', (err, rows) => {
+                if (err) { reject(err); } 
+                else { resolve(rows.map(row => row.user_id)); }
+            });
+        });
+
+        // 6. Запускаем рассылку
+        let sentCount = 0;
+        for (const userId of subscribers) {
+            try {
+                // Если есть фото, отправляем фото с подписью
+                if (fileId) {
+                    await bot.api.sendPhoto(userId, fileId, { caption: textToSend });
+                } 
+                // Иначе отправляем только текст
+                else {
+                    await bot.api.sendMessage(userId, textToSend);
+                }
+                sentCount++;
+                // Небольшая задержка, чтобы избежать лимитов Telegram
+                await new Promise(resolve => setTimeout(resolve, 50));
+            } catch (err) {
+                if (err instanceof GrammyError || err instanceof HttpError) {
+                    logger.error(`Ошибка при отправке сообщения пользователю ${userId}:`, err.message);
+                }
+            }
+        }
+
+        // 7. Отправляем подтверждение об окончании рассылки
+        await ctx.reply(`Рассылка успешно завершена. Сообщение отправлено ${sentCount} из ${subscribers.length} пользователям.`);
+
+    } catch (err) {
+        logger.error("Ошибка при получении списка пользователей:", err);
+        await ctx.reply("Произошла ошибка при получении списка подписчиков.");
+    }
+};
+ 
 // Обработчик для остальных сообщений
 const otherMessageHandler = async (ctx, bot) => {
     if (ctx.chat.type === 'private') {
@@ -176,4 +249,5 @@ module.exports = {
     photoMessageHandler,
     documentMessageHandler,
     otherMessageHandler,
+    sendNewsHandler
 };
