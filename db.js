@@ -8,7 +8,7 @@ const dbPath = path.resolve(__dirname, 'blacklist.sqlite');
 // Создаем подключение к базе данных
 const db = new sqlite3.Database(dbPath, (err) => {
     if (err) {
-        logger.error({ err }, 'Ошибка при подключении к базе данных');
+            logger.error(err, 'Ошибка при подключении к базе данных');
     } else {
         logger.info('Подключение к базе данных SQLite успешно установлено.');
         
@@ -19,7 +19,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
             )
         `, (err) => {
             if (err) {
-                logger.error({ err }, 'Ошибка при создании таблицы black_list');
+                    logger.error(err, 'Ошибка при создании таблицы black_list');
             } else {
                 logger.info('Таблица "black_list" готова.');
             }
@@ -34,7 +34,7 @@ const db = new sqlite3.Database(dbPath, (err) => {
             )
         `, (err) => {
             if (err) {
-                logger.error({ err }, 'Ошибка при создании таблицы bot_users');
+                    logger.error(err, 'Ошибка при создании таблицы bot_users');
             } else {
                 logger.info('Таблица "bot_users" готова.');
             }

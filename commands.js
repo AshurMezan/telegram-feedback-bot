@@ -26,7 +26,7 @@ const startHandler = async (ctx) => {
                 });
             });
         } catch (err) {
-            logger.error({ err }, 'Ошибка БД при сохранении пользователя /start');
+                logger.error(err, 'Ошибка БД при сохранении пользователя /start');
         }
 
         try {
@@ -57,11 +57,11 @@ const giveMeAllUsersHandler = async (ctx) => {
         });
         await ctx.reply(`Количество пользователей, запустивших бота: ${count}`);
     } catch (err) {
-        logger.error({ err }, 'Ошибка БД при подсчете пользователей');
+            logger.error(err, 'Ошибка БД при подсчете пользователей');
         try {
             await ctx.reply('Не удалось получить количество пользователей.');
         } catch (e) {
-            logger.error({ e }, 'Не удалось отправить сообщение о неудаче подсчета');
+                logger.error(e, 'Не удалось отправить сообщение о неудаче подсчета');
         }
     }
 };
@@ -89,11 +89,11 @@ const listUsersHandler = async (ctx) => {
             await ctx.reply(`user_id: ${chunk}`);
         }
     } catch (err) {
-        logger.error({ err }, 'Ошибка БД при получении списка пользователей');
+            logger.error(err, 'Ошибка БД при получении списка пользователей');
         try {
             await ctx.reply('Не удалось получить список пользователей.');
         } catch (e) {
-            logger.error({ e }, 'Не удалось отправить сообщение о неудаче списка');
+                logger.error(e, 'Не удалось отправить сообщение о неудаче списка');
         }
     }
 };
@@ -132,11 +132,11 @@ const recentUsersHandler = async (ctx) => {
             await ctx.reply(lines.slice(i, i + chunkSize).join('\n'));
         }
     } catch (err) {
-        logger.error({ err }, 'Ошибка БД при получении последних пользователей');
+            logger.error(err, 'Ошибка БД при получении последних пользователей');
         try {
             await ctx.reply('Не удалось получить последних пользователей.');
         } catch (e) {
-            logger.error({ e }, 'Не удалось отправить сообщение о неудаче последних пользователей');
+                logger.error(e, 'Не удалось отправить сообщение о неудаче последних пользователей');
         }
     }
 };
@@ -146,7 +146,7 @@ const aboutHandler = async (ctx) => {
         try {
             await ctx.reply('Это бот обратной связи для пользователей. Он позволяет отправлять сообщения в чат администратора. Бот обрабатывает текстовые сообщения, фото и PDF файлы.');
         } catch (err) {
-            logger.error({ err }, 'Не удалось отправить ответ на /about');
+              logger.error(err, 'Не удалось отправить ответ на /about');
         }
     } else if (String(ctx.chat.id) === CHAT_ID) {
         try {
@@ -180,7 +180,7 @@ const helpHandler = async (ctx) => {
     try {
         await ctx.reply(helpMessage);
     } catch (err) {
-        logger.error({ err }, 'Не удалось отправить сообщение помощи /help');
+           logger.error(err, 'Не удалось отправить сообщение помощи /help');
     }
 };
 
@@ -189,7 +189,7 @@ const getIdChatHandler = async (ctx) => {
     try {
         await ctx.reply(`ID этого чата: ${chatId}`);
     } catch (err) {
-        logger.error({ err }, 'Не удалось отправить ID чата');
+           logger.error(err, 'Не удалось отправить ID чата');
     }
 };
 
@@ -223,11 +223,11 @@ const blockHandler = async (ctx) => {
             logger.error({ err }, 'Не удалось отправить подтверждение блокировки');
         }
 	} catch (err) {
-        logger.error({ err }, 'Ошибка БД при блокировке');
+    logger.error(err, 'Ошибка БД при блокировке');
         try {
 		    await ctx.reply('Ошибка базы данных при блокировке.');
         } catch (e) {
-            logger.error({ e }, 'Не удалось уведомить об ошибке БД при блокировке');
+        logger.error(e, 'Не удалось уведомить об ошибке БД при блокировке');
         }
 	}
 };
@@ -271,11 +271,11 @@ const unblockHandler = async (ctx) => {
 			}
 		});
 	} catch (err) {
-        logger.error({ err }, 'Ошибка БД при разблокировке');
+    logger.error(err, 'Ошибка БД при разблокировке');
         try {
 		    await ctx.reply('Ошибка базы данных при разблокировке.');
         } catch (e) {
-            logger.error({ e }, 'Не удалось уведомить об ошибке БД при разблокировке');
+        logger.error(e, 'Не удалось уведомить об ошибке БД при разблокировке');
         }
 	}
 };

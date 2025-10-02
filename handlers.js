@@ -25,7 +25,7 @@ const textMessageHandler = async (ctx, CHAT_ID, bot) => {
             await bot.api.sendMessage(Number(CHAT_ID), fullMessage);
             logger.debug({ userId, chatType: ctx.chat.type }, 'Текстовое сообщение переслано в админ-чат');
         } catch (err) {
-            logger.error({ err }, 'Не удалось переслать текстовое сообщение');
+              logger.error(err, 'Не удалось переслать текстовое сообщение');
         }
 
     } else if (String(ctx.chat.id) === CHAT_ID) { // Иначе, если сообщение пришло из админского чата
@@ -81,7 +81,7 @@ const photoMessageHandler = async (ctx, CHAT_ID, bot) => {
             await bot.api.sendPhoto(Number(CHAT_ID), largestPhoto.file_id, { caption: fullCaption });
             logger.debug({ userId, chatType: ctx.chat.type }, 'Фото переслано в админ-чат');
         } catch (err) {
-            logger.error({ err }, 'Не удалось переслать фото');
+              logger.error(err, 'Не удалось переслать фото');
         }
 
     } else if (String(ctx.chat.id) === CHAT_ID) {
@@ -133,7 +133,7 @@ const documentMessageHandler = async (ctx, CHAT_ID, bot) => {
             await bot.api.sendDocument(Number(CHAT_ID), document.file_id, { caption: fullCaption });
             logger.debug({ userId, chatType: ctx.chat.type }, 'Документ переслан в админ-чат');
         } catch (err) {
-            logger.error({ err }, 'Не удалось переслать документ');
+              logger.error(err, 'Не удалось переслать документ');
         }
 
     } else if (String(ctx.chat.id) === CHAT_ID) {
@@ -215,7 +215,7 @@ const sendNewsHandler = async (ctx, db, bot, CHAT_ID, logger, GrammyError, HttpE
                 await new Promise(resolve => setTimeout(resolve, 50));
             } catch (err) {
                 if (err instanceof GrammyError || err instanceof HttpError) {
-                    logger.error(`Ошибка при отправке сообщения пользователю ${userId}:`, err.message);
+                    logger.error(err, `Ошибка при отправке сообщения пользователю ${userId}`);
                 }
             }
         }
@@ -239,7 +239,7 @@ const otherMessageHandler = async (ctx, bot) => {
         try {
             await ctx.reply('Я работаю только с текстом, фотографиями и PDF-документами.');
         } catch (err) {
-            logger.error({ err }, 'Не удалось отправить ответ по умолчанию');
+              logger.error(err, 'Не удалось отправить ответ по умолчанию');
         }
     }
 };
